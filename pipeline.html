@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pipeline — Lead-Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #14213d;
+    --paper: #f1f4f1;
+    --panel: #ffffff;
+    --line: #9fb4c7;
+    --signal: #e8622c;
+    --signal-dark: #c74f1f;
+    --ok: #3c7a5e;
+    --muted: #5c6b7a;
+    --warn: #c74f1f;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; line-height: 1.5; }
+  a { color: var(--signal-dark); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 80px; }
+
+  .ruler {
+    height: 22px; margin-top: 28px;
+    background-image: repeating-linear-gradient(to right, var(--line) 0, var(--line) 1px, transparent 1px, transparent 20px);
+    background-size: 100% 12px; background-repeat: repeat-x; background-position-y: bottom; position: relative;
+  }
+  .ruler::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
+
+  header { padding-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(26px, 4vw, 36px); font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0; }
+  nav a { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 14px; text-decoration: none; color: var(--ink); border-bottom: 2px solid var(--line); padding-bottom: 2px; }
+
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; margin: 24px 0; }
+  .stat { background: var(--panel); border: 1px solid #dfe4e1; border-radius: var(--radius); padding: 12px 18px; min-width: 110px; }
+  .stat .n { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; }
+  .stat .l { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .stat.due .n { color: var(--signal-dark); }
+
+  section.panel { background: var(--panel); border: 1px solid #dfe4e1; border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-btn {
+    font-family: 'Space Grotesk', sans-serif; font-size: 12.5px; font-weight: 500;
+    border: 1px solid #c9d2ce; background: #fbfcfb; color: var(--muted);
+    padding: 6px 12px; border-radius: 20px; cursor: pointer;
+  }
+  .filter-btn.active { background: var(--ink); border-color: var(--ink); color: white; }
+
+  .actions { display: flex; gap: 10px; }
+  button.small {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px;
+    border: 1px solid var(--ink); background: white; color: var(--ink);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  }
+  button.small:hover { background: var(--ink); color: white; }
+  button.small.primary { background: var(--signal); border-color: var(--signal); color: white; }
+  button.small.primary:hover { background: var(--signal-dark); border-color: var(--signal-dark); }
+  input[type=file] { display: none; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1000px; }
+  th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid #e6eae7; vertical-align: top; }
+  th { font-family: 'Space Grotesk', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+  td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  td.firma-cell { min-width: 160px; }
+  td.firma-cell .firma { font-weight: 600; }
+  td.firma-cell .url { display: block; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+
+  select.status-select {
+    font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+    border: none; border-radius: 6px; padding: 5px 8px; cursor: pointer; color: white;
+  }
+  select.status-select[data-status="Neu"] { background: #6b7a8f; }
+  select.status-select[data-status="Erreicht"] { background: #4a7ba6; }
+  select.status-select[data-status="Interessiert"] { background: #c7912f; }
+  select.status-select[data-status="Will Webseite"] { background: var(--signal); }
+  select.status-select[data-status="Gewonnen"] { background: var(--ok); }
+  select.status-select[data-status="Verloren"] { background: #8a8f94; }
+
+  textarea.notiz {
+    width: 180px; min-height: 44px; font-family: 'Inter', sans-serif; font-size: 12.5px;
+    border: 1px solid #c9d2ce; border-radius: 6px; padding: 6px 8px; resize: vertical;
+  }
+  input.wv-date { font-family: 'IBM Plex Mono', monospace; font-size: 12px; border: 1px solid #c9d2ce; border-radius: 6px; padding: 5px 6px; }
+  input.wv-date.due { border-color: var(--warn); background: #fdf1ec; }
+
+  .del-btn { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+  .del-btn:hover { color: var(--warn); }
+
+  .empty-state { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
+
+  .add-form { display: none; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e6eae7; }
+  .add-form.open { display: flex; }
+  .add-form input { font-family: 'Inter', sans-serif; font-size: 13px; border: 1px solid #c9d2ce; border-radius: 6px; padding: 8px 10px; flex: 1; min-width: 140px; }
+
+  footer { color: var(--muted); font-size: 12px; margin-top: 40px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Pipeline</h1>
+        <p class="subtitle">Leads verwalten, Status verfolgen, Wiedervorlagen im Blick behalten.</p>
+      </div>
+      <nav><a href="/">← Lead-Finder</a></nav>
+    </header>
+    <div class="ruler" aria-hidden="true"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="filters" id="filters"></div>
+        <div class="actions">
+          <button class="small" id="addBtn">+ Lead hinzufügen</button>
+          <label class="small" for="csvInput" style="display:inline-flex;align-items:center;">CSV importieren</label>
+          <input type="file" id="csvInput" accept=".csv" />
+        </div>
+      </div>
+
+      <div class="add-form" id="addForm">
+        <input id="af-url" placeholder="URL (https://...)" />
+        <input id="af-firma" placeholder="Firma" />
+        <input id="af-ort" placeholder="Ort" />
+        <input id="af-inhaber" placeholder="Inhaber" />
+        <input id="af-email" placeholder="E-Mail" />
+        <input id="af-mobil" placeholder="Mobil/Tel" />
+        <button class="small primary" id="af-save">Speichern</button>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Firma / URL</th>
+              <th>Ort</th>
+              <th>Branche</th>
+              <th>Status</th>
+              <th>Kontakt</th>
+              <th>Notiz</th>
+              <th>Wiedervorlage</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state hidden" id="emptyState">Noch keine Leads. Über den Lead-Finder prüfen und übernehmen, manuell hinzufügen, oder eine Hot_Leads.csv importieren.</div>
+    </section>
+
+    <footer>Speicherung über Vercel Blob · Änderungen werden sofort gespeichert.</footer>
+  </div>
+
+<script>
+  const STATUSES = ['Neu', 'Erreicht', 'Interessiert', 'Will Webseite', 'Gewonnen', 'Verloren'];
+  let leads = [];
+  let activeFilter = 'Alle';
+
+  const statsEl = document.getElementById('stats');
+  const filtersEl = document.getElementById('filters');
+  const bodyEl = document.getElementById('leadsBody');
+  const emptyEl = document.getElementById('emptyState');
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  async function fetchLeads() {
+    const resp = await fetch('/api/leads');
+    leads = await resp.json();
+    render();
+  }
+
+  async function patchLead(id, patch) {
+    await fetch('/api/leads', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...patch }),
+    });
+  }
+
+  function renderStats() {
+    const due = leads.filter(l => l.wiedervorlage && l.wiedervorlage <= todayStr() && !['Gewonnen', 'Verloren'].includes(l.status)).length;
+    const won = leads.filter(l => l.status === 'Gewonnen').length;
+    statsEl.innerHTML = `
+      <div class="stat"><div class="n">${leads.length}</div><div class="l">Gesamt</div></div>
+      <div class="stat due"><div class="n">${due}</div><div class="l">Heute fällig</div></div>
+      <div class="stat"><div class="n">${won}</div><div class="l">Gewonnen</div></div>
+    `;
+  }
+
+  function renderFilters() {
+    const all = ['Alle', ...STATUSES];
+    filtersEl.innerHTML = all.map(s => {
+      const count = s === 'Alle' ? leads.length : leads.filter(l => l.status === s).length;
+      return `<button class="filter-btn ${activeFilter === s ? 'active' : ''}" data-status="${s}">${s} (${count})</button>`;
+    }).join('');
+    filtersEl.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => { activeFilter = btn.dataset.status; render(); });
+    });
+  }
+
+  function renderTable() {
+    const filtered = activeFilter === 'Alle' ? leads : leads.filter(l => l.status === activeFilter);
+    const sorted = [...filtered].sort((a, b) => (a.wiedervorlage || '9999').localeCompare(b.wiedervorlage || '9999'));
+
+    if (sorted.length === 0) {
+      bodyEl.innerHTML = '';
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+    emptyEl.classList.add('hidden');
+
+    bodyEl.innerHTML = sorted.map(l => {
+      const isDue = l.wiedervorlage && l.wiedervorlage <= todayStr();
+      return `
+        <tr data-id="${l.id}">
+          <td class="firma-cell">
+            <span class="firma">${escapeHtml(l.firma) || '(ohne Namen)'}</span>
+            <a class="url" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.url)}</a>
+          </td>
+          <td>${escapeHtml(l.ort)}</td>
+          <td>${escapeHtml(l.branche)}</td>
+          <td>
+            <select class="status-select" data-status="${l.status}">
+              ${STATUSES.map(s => `<option value="${s}" ${s === l.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="mono">
+            ${l.inhaber ? escapeHtml(l.inhaber) + '<br>' : ''}
+            ${l.email ? `<a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a><br>` : ''}
+            ${l.mobilTel ? `<a href="tel:${escapeHtml(l.mobilTel.replace(/\s|\//g, ''))}">${escapeHtml(l.mobilTel)}</a>` : ''}
+          </td>
+          <td><textarea class="notiz" placeholder="Notiz …">${escapeHtml(l.notiz)}</textarea></td>
+          <td><input type="date" class="wv-date ${isDue ? 'due' : ''}" value="${l.wiedervorlage || ''}" /></td>
+          <td><button class="del-btn" title="Löschen">✕</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    bodyEl.querySelectorAll('tr').forEach(tr => {
+      const id = tr.dataset.id;
+
+      tr.querySelector('.status-select').addEventListener('change', async (e) => {
+        const lead = leads.find(l => l.id === id);
+        lead.status = e.target.value;
+        e.target.setAttribute('data-status', e.target.value);
+        renderStats(); renderFilters();
+        await patchLead(id, { status: e.target.value });
+      });
+
+      tr.querySelector('.notiz').addEventListener('blur', async (e) => {
+        await patchLead(id, { notiz: e.target.value });
+      });
+
+      tr.querySelector('.wv-date').addEventListener('change', async (e) => {
+        const lead = leads.find(l => l.id === id);
+        lead.wiedervorlage = e.target.value;
+        renderStats();
+        await patchLead(id, { wiedervorlage: e.target.value });
+        render();
+      });
+
+      tr.querySelector('.del-btn').addEventListener('click', async () => {
+        if (!confirm('Lead wirklich löschen?')) return;
+        await fetch(`/api/leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        leads = leads.filter(l => l.id !== id);
+        render();
+      });
+    });
+  }
+
+  function render() {
+    renderStats();
+    renderFilters();
+    renderTable();
+  }
+
+  // --- Manuell hinzufügen ---
+  document.getElementById('addBtn').addEventListener('click', () => {
+    document.getElementById('addForm').classList.toggle('open');
+  });
+
+  document.getElementById('af-save').addEventListener('click', async () => {
+    const url = document.getElementById('af-url').value.trim();
+    if (!url) { alert('URL ist erforderlich.'); return; }
+    const lead = {
+      url,
+      firma: document.getElementById('af-firma').value.trim(),
+      ort: document.getElementById('af-ort').value.trim(),
+      inhaber: document.getElementById('af-inhaber').value.trim(),
+      email: document.getElementById('af-email').value.trim(),
+      mobilTel: document.getElementById('af-mobil').value.trim(),
+    };
+    await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([lead]),
+    });
+    document.querySelectorAll('.add-form input').forEach(i => i.value = '');
+    document.getElementById('addForm').classList.remove('open');
+    fetchLeads();
+  });
+
+  // --- CSV-Import (einfacher Parser, versteht Anfuehrungszeichen/Kommas) ---
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (field !== '' || row.length) { row.push(field); rows.push(row); }
+          field = ''; row = [];
+          if (c === '\r' && next === '\n') i++;
+        } else { field += c; }
+      }
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    if (!rows.length) return [];
+    const headers = rows[0].map(h => h.trim());
+    return rows.slice(1).filter(r => r.length > 1 || r[0]).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = r[i] || '');
+      return obj;
+    });
+  }
+
+  document.getElementById('csvInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const rows = parseCsv(text);
+    // Erwartete Spalten wie in Hot_Leads.csv: url, inhaber, email, mobil_tel, impressum_url, signale ...
+    const mapped = rows.map(r => ({
+      url: r.url || r.URL || '',
+      firma: r.firma || '',
+      ort: r.ort || '',
+      branche: r.branche || '',
+      inhaber: r.inhaber || '',
+      email: r.email || '',
+      mobilTel: r.mobil_tel || r.mobilTel || '',
+      impressumUrl: r.impressum_url || r.impressumUrl || '',
+      signale: r.signale || '',
+    })).filter(r => r.url);
+
+    if (!mapped.length) { alert('Keine gueltigen Zeilen mit URL gefunden.'); return; }
+
+    const resp = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mapped),
+    });
+    const result = await resp.json();
+    alert(`${result.added} Lead(s) importiert, ${result.skipped} bereits vorhanden.`);
+    e.target.value = '';
+    fetchLeads();
+  });
+
+  fetchLeads();
+</script>
+</body>
+</html>

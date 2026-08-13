@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lead-Finder — veraltete Handwerker-Webseiten aufspüren</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #14213d;
+    --paper: #f1f4f1;
+    --panel: #ffffff;
+    --line: #9fb4c7;
+    --signal: #e8622c;
+    --signal-dark: #c74f1f;
+    --ok: #3c7a5e;
+    --muted: #5c6b7a;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.5;
+  }
+
+  a { color: var(--signal-dark); }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* --- Signatur-Element: Lineal / Messskala als Header-Abschluss --- */
+  .ruler {
+    height: 22px;
+    margin-top: 28px;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--line) 0,
+      var(--line) 1px,
+      transparent 1px,
+      transparent 20px
+    );
+    background-position: bottom;
+    background-size: 100% 12px;
+    background-repeat: repeat-x;
+    background-position-y: bottom;
+    position: relative;
+  }
+  .ruler::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: var(--line);
+  }
+
+  header {
+    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 60ch;
+    margin: 0 0 32px;
+  }
+
+  section.panel {
+    background: var(--panel);
+    border: 1px solid #dfe4e1;
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  label.field-label {
+    display: block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 160px;
+    resize: vertical;
+    padding: 14px;
+    border: 1px solid #c9d2ce;
+    border-radius: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: #fbfcfb;
+  }
+  textarea:focus-visible, button:focus-visible, .csv-btn:focus-visible {
+    outline: 3px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  button.primary {
+    background: var(--signal);
+    color: white;
+    border: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button.primary:hover:not(:disabled) { background: var(--signal-dark); }
+  button.primary:disabled { background: #c9c2ba; cursor: not-allowed; }
+
+  .hint {
+    font-size: 12.5px;
+    color: var(--muted);
+    max-width: 46ch;
+  }
+
+  .legal-note {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--line);
+    background: #f6f8f7;
+    font-size: 12.5px;
+    color: var(--muted);
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* --- Fortschritt --- */
+  .progress-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--signal);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .dot.done { background: var(--ok); animation: none; }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+
+  .progress-bar-track {
+    height: 8px;
+    background: #e3e8e4;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--signal);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .progress-bar-fill.done { background: var(--ok); }
+
+  /* --- Ergebnistabelle --- */
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 720px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e6eae7;
+    vertical-align: top;
+  }
+  th {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  td.url-cell, td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  td.url-cell a { word-break: break-all; }
+
+  .empty-state {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 24px 0;
+    text-align: center;
+  }
+
+  .csv-btn {
+    background: var(--ok);
+    color: white;
+    border: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 18px;
+  }
+  .csv-btn:disabled { background: #c9c2ba; cursor: not-allowed; }
+
+  footer {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 40px;
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Lead-Finder</h1>
+        <p class="subtitle">Prüft eine Liste von Webseiten auf Anzeichen für veraltete Technik oder Design und liest bei Treffern automatisch Kontaktdaten aus dem Impressum aus.</p>
+      </div>
+      <nav><a href="/pipeline.html" style="font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:14px;text-decoration:none;color:var(--ink);border-bottom:2px solid var(--line);padding-bottom:2px;">Pipeline →</a></nav>
+    </header>
+    <div class="ruler" aria-hidden="true"></div>
+
+    <section class="panel" style="margin-top:24px;">
+      <label class="field-label" for="urls">Webseiten-URLs (eine pro Zeile)</label>
+      <textarea id="urls" placeholder="https://beispiel-malerbetrieb.de&#10;https://beispiel-dachdecker.de&#10;https://beispiel-schreinerei.de"></textarea>
+      <div class="row">
+        <button class="primary" id="startBtn">Prüfung starten</button>
+        <span class="hint" id="countHint"></span>
+      </div>
+      <div class="legal-note">
+        Hinweis: Kontaktdaten aus dem Impressum sind öffentlich, aber unaufgeforderte Werbeanrufe sind in Deutschland ohne vorherige Einwilligung nach § 7 UWG grundsätzlich unzulässig. Nutze die Liste als Recherche-Grundlage, nicht als Freibrief für Kaltakquise.
+      </div>
+    </section>
+
+    <section class="panel hidden" id="progressPanel">
+      <div class="progress-head">
+        <span class="dot" id="statusDot"></span>
+        <span id="progressText">Wird gestartet …</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="resultsPanel">
+      <label class="field-label">Hot Leads</label>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>URL</th>
+              <th>Signale</th>
+              <th>Wayback</th>
+              <th>Inhaber</th>
+              <th>E-Mail</th>
+              <th>Mobil/Tel</th>
+              <th>Impressum</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state hidden" id="emptyState">Noch keine Hot Leads gefunden.</div>
+      <div class="row" style="margin-top:18px;">
+        <button class="csv-btn" id="csvBtn" disabled>Hot_Leads.csv herunterladen</button>
+        <button class="csv-btn" id="pipelineBtn" disabled style="background:var(--signal);">In Pipeline übernehmen</button>
+      </div>
+    </section>
+
+    <footer>Läuft als Vercel Function (Fluid Compute) · Ergebnisse werden während der Prüfung live aktualisiert.</footer>
+  </div>
+
+<script>
+  const urlsField = document.getElementById('urls');
+  const startBtn = document.getElementById('startBtn');
+  const countHint = document.getElementById('countHint');
+  const progressPanel = document.getElementById('progressPanel');
+  const progressText = document.getElementById('progressText');
+  const progressFill = document.getElementById('progressFill');
+  const statusDot = document.getElementById('statusDot');
+  const resultsPanel = document.getElementById('resultsPanel');
+  const resultsBody = document.getElementById('resultsBody');
+  const emptyState = document.getElementById('emptyState');
+  const csvBtn = document.getElementById('csvBtn');
+  const pipelineBtn = document.getElementById('pipelineBtn');
+
+  let pollTimer = null;
+  let latestResults = [];
+
+  urlsField.addEventListener('input', () => {
+    const n = urlsField.value.split('\n').map(s => s.trim()).filter(Boolean).length;
+    countHint.textContent = n ? `${n} URL${n === 1 ? '' : 's'} erkannt` : '';
+  });
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function renderResults(results) {
+    latestResults = results.filter(r => !r.error);
+    resultsBody.innerHTML = '';
+    if (latestResults.length === 0) {
+      emptyState.classList.remove('hidden');
+    } else {
+      emptyState.classList.add('hidden');
+      for (const r of latestResults) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="url-cell mono"><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.url)}</a></td>
+          <td>${escapeHtml(r.signale)}</td>
+          <td>${escapeHtml(r.wayback)}</td>
+          <td>${escapeHtml(r.inhaber)}</td>
+          <td class="mono">${escapeHtml(r.email)}</td>
+          <td class="mono">${escapeHtml(r.mobilTel)}</td>
+          <td class="url-cell">${r.impressumUrl ? `<a href="${escapeHtml(r.impressumUrl)}" target="_blank" rel="noopener">Link</a>` : ''}</td>
+        `;
+        resultsBody.appendChild(tr);
+      }
+    }
+    csvBtn.disabled = latestResults.length === 0;
+    pipelineBtn.disabled = latestResults.length === 0;
+  }
+
+  function csvEscape(val) {
+    const s = String(val ?? '');
+    if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  csvBtn.addEventListener('click', () => {
+    const headers = ['url', 'signale', 'last_modified', 'wayback', 'inhaber', 'email', 'mobil_tel', 'impressum_url'];
+    const lines = [headers.join(',')];
+    for (const r of latestResults) {
+      lines.push([
+        r.url, r.signale, r.lastModified, r.wayback, r.inhaber, r.email, r.mobilTel, r.impressumUrl
+      ].map(csvEscape).join(','));
+    }
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Hot_Leads.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+
+  pipelineBtn.addEventListener('click', async () => {
+    pipelineBtn.disabled = true;
+    pipelineBtn.textContent = 'Übernehme …';
+    try {
+      const resp = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(latestResults),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Unbekannter Fehler');
+      alert(`${result.added} Lead(s) in die Pipeline übernommen, ${result.skipped} bereits vorhanden.`);
+      window.location.href = '/pipeline.html';
+    } catch (err) {
+      alert('Übernahme fehlgeschlagen: ' + err.message);
+      pipelineBtn.disabled = false;
+      pipelineBtn.textContent = 'In Pipeline übernehmen';
+    }
+  });
+
+  async function poll(jobId, attempt = 0) {
+    let resp;
+    try {
+      resp = await fetch(`/api/status?jobId=${encodeURIComponent(jobId)}`);
+    } catch {
+      pollTimer = setTimeout(() => poll(jobId, attempt + 1), 3000);
+      return;
+    }
+
+    if (resp.status === 404 && attempt < 10) {
+      // Background Function braucht evtl. einen Moment zum Start
+      pollTimer = setTimeout(() => poll(jobId, attempt + 1), 2000);
+      return;
+    }
+
+    if (!resp.ok) {
+      progressText.textContent = 'Fehler beim Abrufen des Fortschritts.';
+      return;
+    }
+
+    const state = await resp.json();
+    const pct = state.total ? Math.round((state.checked / state.total) * 100) : 0;
+    progressFill.style.width = pct + '%';
+    renderResults(state.results || []);
+
+    if (state.status === 'done') {
+      statusDot.classList.add('done');
+      progressFill.classList.add('done');
+      progressText.textContent = `Fertig: ${state.checked}/${state.total} geprüft, ${latestResults.length} Hot Lead${latestResults.length === 1 ? '' : 's'} gefunden.`;
+      startBtn.disabled = false;
+      return;
+    }
+
+    progressText.textContent = `Prüfe … ${state.checked}/${state.total} URLs`;
+    pollTimer = setTimeout(() => poll(jobId, 0), 3000);
+  }
+
+  startBtn.addEventListener('click', async () => {
+    const urls = urlsField.value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (urls.length === 0) {
+      countHint.textContent = 'Bitte mindestens eine URL eintragen.';
+      return;
+    }
+
+    clearTimeout(pollTimer);
+    startBtn.disabled = true;
+    progressPanel.classList.remove('hidden');
+    resultsPanel.classList.remove('hidden');
+    statusDot.classList.remove('done');
+    progressFill.classList.remove('done');
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Wird gestartet …';
+    renderResults([]);
+
+    const jobId = crypto.randomUUID();
+
+    try {
+      await fetch('/api/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, urls }),
+      });
+    } catch {
+      progressText.textContent = 'Start fehlgeschlagen. Bitte erneut versuchen.';
+      startBtn.disabled = false;
+      return;
+    }
+
+    poll(jobId);
+  });
+</script>
+</body>
+</html>
